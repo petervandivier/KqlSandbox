@@ -1,0 +1,14 @@
+// https://learn.microsoft.com/en-us/azure/data-explorer/kusto/management/rowlevelsecuritypolicy
+
+.create-or-alter function with (
+    docstring = 'obfuscate names of odd-numbered cities. leave even-numbered clear'
+) RLS_City() { 
+    City 
+    | extend Name = iff(
+        Id % 2 == 0, 
+        Name, 
+        strcat(substring(Name,1,3), "****")
+    )
+}
+
+.alter table City policy row_level_security enable "RLS_City()"
