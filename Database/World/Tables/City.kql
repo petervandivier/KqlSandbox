@@ -1,0 +1,9 @@
+// https://github.com/ghusta/docker-postgres-world-db/blob/master/scripts/world.sql
+.create table City (
+    Id: int,
+    Name: string,
+    CountryCode: string,
+    District: string,
+    Population: int
+    LocalName: string
+)
