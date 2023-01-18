@@ -16,4 +16,3 @@ normality_test_fl(tbl:(*), data:string, test_statistic:string, p_value:string)
     tbl
     | evaluate python(typeof(*), code, kwargs)
 }
-}
