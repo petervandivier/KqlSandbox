@@ -1,0 +1,37 @@
+.create-or-alter function with (folder = "Packages\\Series", docstring = "Fit a polynomial of a specified degree to a series")
+series_fit_poly_fl(tbl:(*), y_series:string, y_fit_series:string, fit_coeff:string, degree:int, x_series:string='', x_istime:bool=false)
+{
+    let kwargs = bag_pack('y_series', y_series, 'y_fit_series', y_fit_series, 'fit_coeff', fit_coeff, 'degree', degree, 'x_series', x_series, 'x_istime', x_istime);
+    let code=
+        '\n'
+        'y_series = kargs["y_series"]\n'
+        'y_fit_series = kargs["y_fit_series"]\n'
+        'fit_coeff = kargs["fit_coeff"]\n'
+        'degree = kargs["degree"]\n'
+        'x_series = kargs["x_series"]\n'
+        'x_istime = kargs["x_istime"]\n'
+        '\n'
+        'def fit(ts_row, x_col, y_col, deg):\n'
+        '    y = ts_row[y_col]\n'
+        '    if x_col == "": # If there is no x column creates sequential range [1, len(y)]\n'
+        '       x = np.arange(len(y)) + 1\n'
+        '    else: # if x column exists check whether its a time column. If so, normalize it to the [1, len(y)] range, else take it as is.\n'
+        '       if x_istime: \n'
+        '           x = pd.to_numeric(pd.to_datetime(ts_row[x_col]))\n'
+        '           x = x - x.min()\n'
+        '           x = x / x.max()\n'
+        '           x = x * (len(x) - 1) + 1\n'
+        '       else:\n'
+        '           x = ts_row[x_col]\n'
+        '    coeff = np.polyfit(x, y, deg)\n'
+        '    p = np.poly1d(coeff)\n'
+        '    z = p(x)\n'
+        '    return z, coeff\n'
+        '\n'
+        'result = df\n'
+        'if len(df):\n'
+        '   result[[y_fit_series, fit_coeff]] = df.apply(fit, axis=1, args=(x_series, y_series, degree,), result_type="expand")\n'
+    ;
+    tbl
+     | evaluate python(typeof(*), code, kwargs)
+}

@@ -1,0 +1,30 @@
+.create-or-alter function with (folder = "Packages\\Series", docstring = "Time Series Change Points Detection by Azure Cognitive Service")
+series_uv_change_points_fl(tbl:(*), y_series:string, score_threshold:real=0.9, trend_window:int=5, tsid:string='_tsid')
+{
+    let uri = 'https://YOUR-AD-RESOURCE-NAME.cognitiveservices.azure.com/anomalydetector/v1.0/timeseries/changepoint/detect';
+    let headers=dynamic({'Ocp-Apim-Subscription-Key': h'YOUR-KEY'});
+    let kwargs = bag_pack('y_series', y_series, 'score_threshold', score_threshold, 'trend_window', trend_window);
+    let code = ```if 1:
+        import json
+        y_series = kargs["y_series"]
+        score_threshold = kargs["score_threshold"]
+        trend_window = kargs["trend_window"]
+        json_str = []
+        for i in range(len(df)):
+            row = df.iloc[i, :]
+            ts = [{'value':row[y_series][j]} for j in range(len(row[y_series]))]
+            json_data = {'series': ts, "threshold":score_threshold, "stableTrendWindow": trend_window}     # auto-detect period, or we can force 'period': 84
+            json_str = json_str + [json.dumps(json_data)]
+        result = df
+        result['json_str'] = json_str
+    ```;
+    tbl
+    | evaluate python(typeof(*, json_str:string), code, kwargs)
+    | extend _tsid = column_ifexists(tsid, 1)
+    | partition by _tsid (
+       project json_str
+       | evaluate http_request_post(uri, headers, dynamic(null))
+        | project period=ResponseBody.period, change_point=series_add(0, ResponseBody.isChangePoint), confidence=ResponseBody.confidenceScores
+        | extend _tsid=toscalar(_tsid)
+       )
+}

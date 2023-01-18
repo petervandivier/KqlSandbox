@@ -1,0 +1,5 @@
+.create-or-alter function with (folder = "Packages\\Series", docstring = "Basic exponential smoothing for a series")
+series_exp_smoothing_fl(y_series:dynamic, alpha:double=0.5)
+{
+    series_iir(y_series, pack_array(alpha), pack_array(1, alpha-1))
+}

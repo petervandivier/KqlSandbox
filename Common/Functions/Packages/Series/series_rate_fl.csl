@@ -1,0 +1,18 @@
+.create function with (folder = "Packages\\Series", docstring = "Simulate PromQL rate()")
+series_rate_fl(tbl:(timestamp:dynamic, value:dynamic), n_bins:int=1, fix_reset:bool=true)
+{
+    tbl
+    | where fix_reset                                                   //  Prometheus counters can only go up
+    | mv-apply value to typeof(double) on   
+    ( extend correction = iff(value < prev(value), prev(value), 0.0)    // if the value decreases we assume it was reset to 0, so add last value
+    | extend cum_correction = row_cumsum(correction)
+    | extend corrected_value = value + cum_correction
+    | summarize value = make_list(corrected_value))
+    | union (tbl | where not(fix_reset))
+    | extend timestampS = array_shift_right(timestamp, n_bins), valueS = array_shift_right(value, n_bins)
+    | extend dt = series_subtract(timestamp, timestampS)
+    | extend dt = series_divide(dt, 1e7)                              //  converts from ticks to seconds
+    | extend dv = series_subtract(value, valueS)
+    | extend rate = series_divide(dv, dt)
+    | project-away dt, dv, timestampS, value, valueS
+}

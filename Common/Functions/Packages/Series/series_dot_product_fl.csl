@@ -1,0 +1,7 @@
+.create-or-alter function with (folder = "Packages\\Series", docstring = "Calculate the dot product of 2 numerical arrays")
+series_dot_product_fl(vec1:dynamic, vec2:dynamic)
+{
+    let elem_prod = series_multiply(vec1, vec2);
+    let cum_sum = series_iir(elem_prod, dynamic([1]), dynamic([1,-1]));
+    todouble(cum_sum[-1])
+}

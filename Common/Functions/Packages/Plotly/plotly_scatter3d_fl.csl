@@ -1,0 +1,28 @@
+.create-or-alter function with (folder = "Packages\\Plotly", docstring = "Render 3D scatter chart using plotly template")
+plotly_scatter3d_fl(tbl:(*), x_col:string, y_col:string, z_col:string, aggr_col:string='', chart_title:string='3D Scatter chart')
+{
+    let scatter3d_chart = toscalar(PlotlyTemplate | where name == "scatter3d" | project plotly);
+    let tbl_ex = tbl | extend _x = column_ifexists(x_col, 0.0), _y = column_ifexists(y_col, 0.0), _z = column_ifexists(z_col, 0.0), _aggr = column_ifexists(aggr_col, 'ALL');
+    tbl_ex
+    | serialize 
+    | summarize _x=pack_array(make_list(_x)), _y=pack_array(make_list(_y)), _z=pack_array(make_list(_z)) by _aggr
+    | summarize _aggr=make_list(_aggr), _x=make_list(_x), _y=make_list(_y), _z=make_list(_z)
+    | extend plotly = scatter3d_chart
+    | extend plotly=replace_string(plotly, '$CLASS1$', tostring(_aggr[0]))
+    | extend plotly=replace_string(plotly, '$CLASS2$', tostring(_aggr[1]))
+    | extend plotly=replace_string(plotly, '$CLASS3$', tostring(_aggr[2]))
+    | extend plotly=replace_string(plotly, '$X_NAME$', x_col)
+    | extend plotly=replace_string(plotly, '$Y_NAME$', y_col)
+    | extend plotly=replace_string(plotly, '$Z_NAME$', z_col)
+    | extend plotly=replace_string(plotly, '$CLASS1_X$', tostring(_x[0]))
+    | extend plotly=replace_string(plotly, '$CLASS1_Y$', tostring(_y[0]))
+    | extend plotly=replace_string(plotly, '$CLASS1_Z$', tostring(_z[0]))
+    | extend plotly=replace_string(plotly, '$CLASS2_X$', tostring(_x[1]))
+    | extend plotly=replace_string(plotly, '$CLASS2_Y$', tostring(_y[1]))
+    | extend plotly=replace_string(plotly, '$CLASS2_Z$', tostring(_z[1]))
+    | extend plotly=replace_string(plotly, '$CLASS3_X$', tostring(_x[2]))
+    | extend plotly=replace_string(plotly, '$CLASS3_Y$', tostring(_y[2]))
+    | extend plotly=replace_string(plotly, '$CLASS3_Z$', tostring(_z[2]))
+    | extend plotly=replace_string(plotly, '$TITLE$', chart_title)
+    | project plotly
+}

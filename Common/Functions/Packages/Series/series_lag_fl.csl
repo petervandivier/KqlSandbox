@@ -1,0 +1,8 @@
+.create-or-alter function  with (folder = "Packages\\Series", docstring = "Shift a series by a specified offset")
+series_lag_fl(series:dynamic, offset:int)
+{
+    let lag_f = toscalar(range x from 1 to offset+1 step 1
+    | project y=iff(x == offset+1, 1, 0)
+    | summarize lag_filter = make_list(y));
+    fir(series, lag_f, false)
+} 

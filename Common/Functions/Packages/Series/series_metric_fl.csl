@@ -1,0 +1,14 @@
+.create function with (folder = "Packages\\Series", docstring = "Selecting & retrieving metrics like PromQL")
+series_metric_fl(metrics_tbl:(*), timestamp_col:string, name_col:string, labels_col:string, value_col:string, metric_name:string, labels_selector:string='', lookback:timespan=timespan(10m), offset:timespan=timespan(0))
+{
+    let selector_d=iff(labels_selector == '', dynamic(['']), split(labels_selector, ','));
+    let etime = ago(offset);
+    let stime = etime - lookback;
+    metrics_tbl
+    | extend timestamp = column_ifexists(timestamp_col, datetime(null)), name = column_ifexists(name_col, ''), labels = column_ifexists(labels_col, dynamic(null)), value = column_ifexists(value_col, 0)
+    | extend labels = dynamic_to_json(labels)       //  convert to string and sort by key
+    | where name == metric_name and timestamp between(stime..etime)
+    | order by timestamp asc
+    | summarize timestamp = make_list(timestamp), value=make_list(value) by name, labels
+    | where labels has_all (selector_d)
+}

@@ -1,0 +1,30 @@
+.create-or-alter function with (folder = "Packages\\Series", docstring = "Time Series Anomaly Detection by Azure Cognitive Service")
+series_uv_anomalies_fl(tbl:(*), y_series:string, sensitivity:int=85, tsid:string='_tsid')
+{
+    let uri = 'https://YOUR-AD-RESOURCE-NAME.cognitiveservices.azure.com/anomalydetector/v1.0/timeseries/entire/detect';
+    let headers=dynamic({'Ocp-Apim-Subscription-Key': h'YOUR-KEY'});
+    let kwargs = bag_pack('y_series', y_series, 'sensitivity', sensitivity);
+    let code = ```if 1:
+        import json
+        y_series = kargs["y_series"]
+        sensitivity = kargs["sensitivity"]
+        json_str = []
+        for i in range(len(df)):
+            row = df.iloc[i, :]
+            ts = [{'value':row[y_series][j]} for j in range(len(row[y_series]))]
+            json_data = {'series': ts, "sensitivity":sensitivity}     # auto-detect period, or we can force 'period': 84. We can also add 'maxAnomalyRatio':0.25 for maximum 25% anomalies
+            json_str = json_str + [json.dumps(json_data)]
+        result = df
+        result['json_str'] = json_str
+    ```;
+    tbl
+    | evaluate python(typeof(*, json_str:string), code, kwargs)
+    | extend _tsid = column_ifexists(tsid, 1)
+    | partition by _tsid (
+       project json_str
+       | evaluate http_request_post(uri, headers, dynamic(null))
+       | project period=ResponseBody.period, baseline_ama=ResponseBody.expectedValues, ad_ama=series_add(0, ResponseBody.isAnomaly), pos_ad_ama=series_add(0, ResponseBody.isPositiveAnomaly)
+       , neg_ad_ama=series_add(0, ResponseBody.isNegativeAnomaly), upper_ama=series_add(ResponseBody.expectedValues, ResponseBody.upperMargins), lower_ama=series_subtract(ResponseBody.expectedValues, ResponseBody.lowerMargins)
+       | extend _tsid=toscalar(_tsid)
+      )
+}

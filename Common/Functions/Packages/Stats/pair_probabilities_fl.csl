@@ -1,0 +1,20 @@
+.create-or-alter function with (folder = "Packages\\Stats", docstring = "Calculate probabilities and related metrics for a pair of categorical variables")
+pair_probabilities_fl = (tbl:(*), A_col:string, B_col:string, scope_col:string)
+{
+let T = materialize(tbl | extend _A = column_ifexists(A_col, ''), _B = column_ifexists(B_col, ''), _scope = column_ifexists(scope_col, ''));
+let countOnScope = T | summarize countAllOnScope = count() by _scope;
+let probAB = T | summarize countAB = count() by _A, _B, _scope | join kind = leftouter (countOnScope) on _scope | extend P_AB = todouble(countAB)/countAllOnScope;
+let probA  = probAB | summarize countA = sum(countAB), countAllOnScope = max(countAllOnScope) by _A, _scope | extend P_A = todouble(countA)/countAllOnScope;
+let probB  = probAB | summarize countB = sum(countAB), countAllOnScope = max(countAllOnScope) by _B, _scope | extend P_B = todouble(countB)/countAllOnScope;
+probAB
+| join kind = leftouter (probA) on _A, _scope           // probability for each value of A
+| join kind = leftouter (probB) on _B, _scope           // probability for each value of B
+| extend P_AUB = P_A + P_B - P_AB                       // union probability
+       , P_AIB = P_AB/P_B                               // conditional probability of A on B
+       , P_BIA = P_AB/P_A                               // conditional probability of B on A
+| extend Lift_AB = P_AB/(P_A * P_B)                     // lift metric
+       , Jaccard_AB = P_AB/P_AUB                        // Jaccard similarity index
+| project _A, _B, _scope, bin(P_A, 0.00001), bin(P_B, 0.00001), bin(P_AB, 0.00001), bin(P_AUB, 0.00001), bin(P_AIB, 0.00001)
+, bin(P_BIA, 0.00001), bin(Lift_AB, 0.00001), bin(Jaccard_AB, 0.00001)
+| sort by _scope, _A, _B
+};

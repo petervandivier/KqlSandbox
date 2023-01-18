@@ -1,0 +1,20 @@
+.create-or-alter function with (folder = "Packages\\Stats", docstring = "Mann-Whitney U Test")
+mann_whitney_u_test_fl(tbl:(*), data1:string, data2:string, test_statistic:string, p_value:string, use_continuity:bool=true)
+{
+    let kwargs = bag_pack('data1', data1, 'data2', data2, 'test_statistic', test_statistic, 'p_value', p_value, 'use_continuity', use_continuity);
+    let code = ```if 1:
+        from scipy import stats
+        data1 = kargs["data1"]
+        data2 = kargs["data2"]
+        test_statistic = kargs["test_statistic"]
+        p_value = kargs["p_value"]
+        use_continuity = kargs["use_continuity"]
+        def func(row):
+            statistics = stats.mannwhitneyu(row[data1], row[data2], use_continuity=use_continuity)
+            return statistics[0], statistics[1]
+        result = df
+        result[[test_statistic, p_value]]  = df.apply(func, axis=1, result_type = "expand")
+        ```;
+    tbl
+    | evaluate python(typeof(*), code, kwargs)
+}

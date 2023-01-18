@@ -1,0 +1,7 @@
+.create-or-alter function with (folder = "Packages\\Stats", docstring = "Calculate number of permutations for selection of k items out of n items with order")
+perm_fl(n:int, k:int)
+{
+    let fact_n = gamma(n+1);
+    let fact_nk = gamma(n-k+1);
+    tolong(fact_n/fact_nk)
+}

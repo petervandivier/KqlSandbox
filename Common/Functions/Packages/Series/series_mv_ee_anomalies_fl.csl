@@ -1,0 +1,21 @@
+.create-or-alter function with (folder = "Packages\\Series", docstring = "Anomaly Detection for multi dimensional normally distributed data using elliptical envelope model")
+series_mv_ee_anomalies_fl(tbl:(*), features_cols:dynamic, anomaly_col:string, anomalies_pct:real=4.0)
+{
+    let kwargs = bag_pack('features_cols', features_cols, 'anomaly_col', anomaly_col, 'anomalies_pct', anomalies_pct);
+    let code = ```if 1:
+        from sklearn.covariance import EllipticEnvelope
+        features_cols = kargs['features_cols']
+        anomaly_col = kargs['anomaly_col']
+        anomalies_pct = kargs['anomalies_pct']
+        dff = df[features_cols]
+        ellipsoid = EllipticEnvelope(contamination=anomalies_pct/100.0)
+        for i in range(len(dff)):
+            dffi = dff.iloc[[i], :]
+            dffe = dffi.explode(features_cols)
+            ellipsoid.fit(dffe)
+            df.loc[i, anomaly_col] = (ellipsoid.predict(dffe) < 0).astype(int).tolist()
+        result = df
+    ```;
+    tbl
+    | evaluate python(typeof(*), code, kwargs)
+}

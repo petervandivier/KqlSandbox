@@ -1,0 +1,20 @@
+.create-or-alter function with (folder = "Packages\\Series", docstring = "Time based rolling average of a metric")
+time_window_rolling_avg_fl(tbl:(*), t_col:string, y_col:string, key_col:string, dt:timespan, direction:int=int(-1))
+{
+    let tbl_ex = tbl | extend timestamp = column_ifexists(t_col, datetime(null)), value = column_ifexists(y_col, 0.0), key = column_ifexists(key_col, '');
+    tbl_ex 
+    | partition hint.strategy=shuffle by key 
+    (
+        extend timestamp=pack_array(timestamp, timestamp - direction*dt), delta = pack_array(-direction, direction)
+        | mv-expand timestamp to typeof(datetime), delta to typeof(long)
+        | sort by timestamp asc, delta desc    
+        | scan declare (cum_sum:double=0.0, cum_count:long=0) with 
+        (
+            step s: true => cum_count = s.cum_count + delta, 
+                            cum_sum = s.cum_sum + delta * value; 
+        )
+        | extend avg_value = iff(direction == 1, prev(cum_sum)/prev(cum_count), cum_sum/cum_count)
+        | where delta == -direction 
+        | project timestamp, value, avg_value, key
+    )
+}

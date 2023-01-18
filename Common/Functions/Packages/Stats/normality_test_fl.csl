@@ -1,0 +1,19 @@
+.create-or-alter function with (folder = "Packages\\Stats", docstring = "Normality Test")
+normality_test_fl(tbl:(*), data:string, test_statistic:string, p_value:string)
+{
+    let kwargs = bag_pack('data', data, 'test_statistic', test_statistic, 'p_value', p_value);
+    let code = ```if 1:
+        from scipy import stats
+        data = kargs["data"]
+        test_statistic = kargs["test_statistic"]
+        p_value = kargs["p_value"]
+        def func(row):
+            statistics = stats.normaltest(row[data])
+            return statistics[0], statistics[1]
+        result = df
+        result[[test_statistic, p_value]]  = df.apply(func, axis=1, result_type = "expand")
+    ```;
+    tbl
+    | evaluate python(typeof(*), code, kwargs)
+}
+}

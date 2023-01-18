@@ -1,0 +1,5 @@
+.create-or-alter function with (folder = "Packages\\Stats", docstring = "Calculate factorial")
+factorial_fl(n:int)
+{
+    gamma(n+1)
+}

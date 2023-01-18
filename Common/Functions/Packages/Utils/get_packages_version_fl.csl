@@ -1,0 +1,25 @@
+.create-or-alter function with (folder = "Packages\\Utils", docstring = "Returns version information of the Python engine and the specified packages")
+get_packages_version_fl(packages:dynamic=dynamic([]))
+{
+    let kwargs = pack('packages', packages);
+    let code =
+    ```if 1:
+        import importlib
+        import sys
+        
+        packages = kargs["packages"]
+        result = pd.DataFrame(columns=["name", "ver"])
+        for i in range(len(packages)):
+            result.loc[i, "name"] = packages[i]
+            try:
+                m = importlib.import_module(packages[i])
+                result.loc[i, "ver"] = m.__version__ if hasattr(m, "__version__") else "missing __version__ attribute"
+            except Exception as ex:
+                result.loc[i, "ver"] = "ERROR: " + (ex.msg if hasattr(ex, "msg") else "exception, no msg")
+        id = result.shape[0]
+        result.loc[id, "name"] = "Python"
+        result.loc[id, "ver"] = sys.version
+    ```;
+    print 1
+    | evaluate python(typeof(name:string , ver:string), code, kwargs)
+}

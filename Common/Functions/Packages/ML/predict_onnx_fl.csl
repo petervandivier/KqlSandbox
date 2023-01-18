@@ -1,0 +1,30 @@
+.create-or-alter function with (folder = "Packages\\ML", docstring = "Predict using ONNX model")
+predict_onnx_fl(samples:(*), models_tbl:(name:string, timestamp:datetime, model:string), model_name:string, features_cols:dynamic, pred_col:string)
+{
+    let model_str = toscalar(models_tbl | where name == model_name | top 1 by timestamp desc | project model);
+    let kwargs = bag_pack('smodel', model_str, 'features_cols', features_cols, 'pred_col', pred_col);
+    let code = ```if 1:
+    
+    import binascii
+    
+    smodel = kargs["smodel"]
+    features_cols = kargs["features_cols"]
+    pred_col = kargs["pred_col"]
+    bmodel = binascii.unhexlify(smodel)
+    
+    features_cols = kargs["features_cols"]
+    pred_col = kargs["pred_col"]
+    
+    import onnxruntime as rt
+    sess = rt.InferenceSession(bmodel)
+    input_name = sess.get_inputs()[0].name
+    label_name = sess.get_outputs()[0].name
+    df1 = df[features_cols]
+    predictions = sess.run([label_name], {input_name: df1.values.astype(np.float32)})[0]
+    
+    result = df
+    result[pred_col] = pd.DataFrame(predictions, columns=[pred_col])
+    
+    ```;
+    samples | evaluate python(typeof(*), code, kwargs)
+}
