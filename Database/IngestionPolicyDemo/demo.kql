@@ -1,0 +1,129 @@
+
+.drop table Ingest
+
+.drop table Transform
+
+.create table Ingest (
+    Timestamp: datetime,
+    Key: string,
+    MonotonicValue: int 
+) 
+
+.create table Transform (
+    Timestamp: datetime,
+    Key: string,
+    DiscreteValue: int,
+    MonotonicValue: int 
+)
+
+.create-or-alter function ParseIngest() {
+    let _lastTransform = (
+        Transform 
+        | summarize arg_max(Timestamp, *) by Key
+        | project 
+            Key,
+            LastTimestamp = Timestamp,
+            LastMonotonicValue = MonotonicValue
+    );
+    Ingest
+    | join kind = leftouter _lastTransform on Key
+    | project-away Key1
+    | order by Key, Timestamp asc
+    | extend RowNumber = row_number(1, Key != prev(Key))
+    | extend DiscreteValue = iff(
+        RowNumber == 1,
+        MonotonicValue - LastMonotonicValue,
+        MonotonicValue - prev(MonotonicValue)
+    )
+    | project 
+        Timestamp,
+        Key,
+        toint(DiscreteValue),
+        MonotonicValue
+}
+
+.alter table Transform policy update 
+```
+[
+    {
+        "IsEnabled": true,
+        "Source": "Ingest",
+        "Query": "ParseIngest",
+        "IsTransactional": false
+    }
+]
+```
+
+.ingest inline into table Ingest <|
+2023-01-01,a,10
+2023-01-02,a,12
+2023-01-03,a,14
+2023-01-01,b,21
+2023-01-02,b,21
+2023-01-03,b,22
+
+.ingest inline into table Ingest <|
+2023-01-04,a,14
+2023-01-05,a,15
+2023-01-06,a,15
+2023-01-04,b,25
+2023-01-05,b,27
+2023-01-06,b,28
+
+.ingest inline into table Ingest <|
+2023-01-07,a,16
+2023-01-08,a,17
+2023-01-09,a,17
+2023-01-10,a,19
+2023-01-07,b,28
+2023-01-08,b,28
+2023-01-09,b,29
+2023-01-10,b,29
+
+Transform
+| order by Key, Timestamp
+
+.append Ingest <| 
+datatable (
+    Timestamp: datetime,
+    Key: string,
+    MonotonicValue: int 
+) [
+    datetime(2023-01-01),'a',10,
+    datetime(2023-01-02),'a',12,
+    datetime(2023-01-03),'a',14,
+    datetime(2023-01-01),'b',21,
+    datetime(2023-01-02),'b',21,
+    datetime(2023-01-03),'b',22,
+]
+
+.append Ingest <| 
+datatable (
+    Timestamp: datetime,
+    Key: string,
+    MonotonicValue: int 
+) [
+    datetime(2023-01-04),'a',14,
+    datetime(2023-01-05),'a',15,
+    datetime(2023-01-06),'a',15,
+    datetime(2023-01-04),'b',25,
+    datetime(2023-01-05),'b',27,
+    datetime(2023-01-06),'b',28,
+]
+
+.append Ingest <| 
+datatable (
+    Timestamp: datetime,
+    Key: string,
+    MonotonicValue: int 
+) [
+    datetime(2023-01-07),'a',16,
+    datetime(2023-01-08),'a',17,
+    datetime(2023-01-09),'a',17,
+    datetime(2023-01-10),'a',19,
+    datetime(2023-01-07),'b',28,
+    datetime(2023-01-08),'b',28,
+    datetime(2023-01-09),'b',29,
+    datetime(2023-01-10),'b',29,
+]
+
