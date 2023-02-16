@@ -1,4 +1,4 @@
-#Requires -Modules Invoke-AdxCmd
+#Requires -Modules @{ModuleName='Invoke-AdxCmd';ModuleVersion='0.0.4'}
 
 <#
 .LINK
@@ -25,9 +25,6 @@ Push-Location $PsScriptRoot
 $PSDefaultParameterValues.'Invoke-AdxCmd:clusterUrl' = $clusterUrl
 $PSDefaultParameterValues.'Invoke-AdxCmd:databaseName' = $databaseName
 
-. ./New-WithClause.ps1
-. ./Format-Parameters.ps1
-
 $dbTables = Invoke-AdxCmd -Query '.show database cslschema'
 $createTblStub = @"
 .create-merge table (
@@ -37,7 +34,7 @@ $createTblStub = @"
 "@
 
 $dbTables | ForEach-Object {
-    $WithClause = New-WithClause $_.Folder $_.DocString
+    $WithClause = New-KqlWithClause $_.Folder $_.DocString
     $ColumnList = ($_.Schema.Split(',') | ForEach-Object {
         "    $($_.Replace(':', ': ')),"
     }) -join ([Environment]::NewLine)
@@ -57,8 +54,8 @@ $createFuncStub = @"
 "@
 
 $dbFunctions | ForEach-Object {
-    $WithClause = New-WithClause $_.Folder $_.DocString
-    $Parameters = Format-Parameters $_.Parameters
+    $WithClause = New-KqlWithClause $_.Folder $_.DocString
+    $Parameters = Format-KqlParameters $_.Parameters
     $createCmd = $createFuncStub.Replace( 
         '{WithClause}', $WithClause
     ).Replace( 
