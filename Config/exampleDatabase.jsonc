@@ -1,0 +1,8 @@
+// https://learn.microsoft.com/en-us/powershell/module/az.kusto/new-azkustodatabase
+{
+    "Name":              "mykustodatabase",
+    "ResourceGroupName": "testrg",
+    "ClusterName":       "testnewkustocluster",
+    "Kind":              "ReadWrite",
+    "Location":          "East US"
+}
